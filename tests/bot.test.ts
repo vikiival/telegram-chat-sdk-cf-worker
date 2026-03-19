@@ -132,8 +132,7 @@ describe("message handling", () => {
     expect(args.thread.post).toHaveBeenCalledWith("Short reply");
     expect(args.sessionStore.recordExchange).toHaveBeenCalledWith(
       "telegram:dm:1",
-      { replyText: "Short reply", userMessage: "Hello bot" },
-      null
+      { replyText: "Short reply", userMessage: "Hello bot" }
     );
   });
 

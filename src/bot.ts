@@ -130,11 +130,10 @@ async function generateAndPostReply(args: {
   });
 
   await args.thread.post(result.text);
-  await args.sessionStore.recordExchange(
-    args.thread.id,
-    { replyText: result.text, userMessage: normalizedText },
-    existingSession
-  );
+  await args.sessionStore.recordExchange(args.thread.id, {
+    replyText: result.text,
+    userMessage: normalizedText,
+  });
 }
 
 export function createTelegramBotRuntime(
