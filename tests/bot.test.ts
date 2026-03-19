@@ -1,224 +1,240 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from "vitest";
 
 import {
-  createHelpText,
+  createMentionPatterns,
   generateAndPostReply,
+  HELP_TEXT,
   normalizeIncomingText,
+  parseAllowedUsers,
   parseCommand,
-} from '../src/bot.js'
-import { StateSessionStore } from '../src/session-store.js'
-import { WorkersAiResponder } from '../src/services/responders.js'
+} from "../src/bot.js";
+import { WorkersAiResponder } from "../src/services/responders.js";
+import { StateSessionStore } from "../src/session-store.js";
 
-describe('bot helpers', () => {
-  it('normalizes mentions and command suffixes', () => {
-    expect(normalizeIncomingText('Hello @test_bot', 'test_bot')).toBe('Hello')
-    expect(normalizeIncomingText('/help@test_bot', 'test_bot')).toBe('/help')
-  })
+const patterns = createMentionPatterns("test_bot");
 
-  it('parses supported commands', () => {
-    expect(parseCommand('/start')).toBe('start')
-    expect(parseCommand('/help')).toBe('help')
-    expect(parseCommand('/reset')).toBe('reset')
-    expect(parseCommand('hello')).toBeNull()
-  })
+function baseArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    allowedUsers: null,
+    message: {
+      author: { fullName: "Test User", userId: "123", userName: "tester" },
+      text: "Hello bot",
+    },
+    patterns,
+    responder: {
+      generateReply: async () => ({ model: "test-model", text: "Short reply" }),
+    },
+    sessionStore: {
+      get: async () => null,
+      getDebugSnapshot: async () => ({
+        session: null,
+        subscribed: false,
+        threadId: "telegram:dm:1",
+      }),
+      recordExchange: vi.fn(async () => ({
+        history: [],
+        updatedAt: "2026-03-18T00:00:00.000Z",
+      })),
+      reset: async () => undefined,
+    },
+    thread: {
+      id: "telegram:dm:1",
+      isDM: true,
+      post: vi.fn(async () => undefined),
+      subscribe: vi.fn(async () => undefined),
+      unsubscribe: vi.fn(async () => undefined),
+    },
+    ...overrides,
+  };
+}
 
-  it('builds deterministic help text', () => {
-    expect(createHelpText()).toContain('/reset')
-  })
-})
+describe("bot helpers", () => {
+  it("normalizes mentions and command suffixes", () => {
+    expect(normalizeIncomingText("Hello @test_bot", patterns)).toBe("Hello");
+    expect(normalizeIncomingText("/help@test_bot", patterns)).toBe("/help");
+  });
 
-describe('message handling', () => {
-  it('subscribes and replies to a first DM', async () => {
-    const subscribe = vi.fn(async () => undefined)
-    const post = vi.fn(async () => undefined)
-    const setSubscribed = vi.fn(async () => undefined)
-    const recordExchange = vi.fn(async () => ({
-      history: [],
-      lastReplyAt: '2026-03-18T00:00:00.000Z',
-      lastReplyText: 'Short reply',
-      lastUserMessage: 'Hello bot',
-      subscribed: true,
-      threadId: 'telegram:dm:1',
-      updatedAt: '2026-03-18T00:00:00.000Z',
-    }))
+  it("parses supported commands", () => {
+    expect(parseCommand("/start")).toBe("start");
+    expect(parseCommand("/help")).toBe("help");
+    expect(parseCommand("/reset")).toBe("reset");
+    expect(parseCommand("hello")).toBeNull();
+  });
 
-    await generateAndPostReply({
-      message: {
-        author: {
-          fullName: 'Test User',
-          userName: 'tester',
-        },
-        text: 'Hello bot',
-      },
-      responder: {
-        generateReply: async () => ({
-          model: 'test-model',
-          text: 'Short reply',
-        }),
-      },
-      sessionStore: {
-        get: async () => null,
-        getDebugSnapshot: async () => ({
-          session: null,
-          subscribed: true,
-          threadId: 'telegram:dm:1',
-        }),
-        recordExchange,
-        reset: async () => undefined,
-        setSubscribed,
-      },
-      thread: {
-        id: 'telegram:dm:1',
-        isDM: true,
-        post,
-        subscribe,
-        unsubscribe: async () => undefined,
-      },
-      userName: 'test_bot',
-    })
+  it("builds deterministic help text", () => {
+    expect(HELP_TEXT).toContain("/reset");
+  });
+});
 
-    expect(subscribe).toHaveBeenCalledTimes(1)
-    expect(setSubscribed).toHaveBeenCalledWith('telegram:dm:1', true)
-    expect(post).toHaveBeenCalledWith('Short reply')
-    expect(recordExchange).toHaveBeenCalledWith('telegram:dm:1', {
-      replyText: 'Short reply',
-      userMessage: 'Hello bot',
-    })
-  })
+describe("parseAllowedUsers", () => {
+  it("returns null when no value is provided", () => {
+    expect(parseAllowedUsers()).toBeNull();
+    expect(parseAllowedUsers("")).toBeNull();
+    expect(parseAllowedUsers("  ")).toBeNull();
+  });
 
-  it('handles subscribed follow-up messages using session history', async () => {
-    const post = vi.fn(async () => undefined)
+  it("parses comma-separated Telegram IDs", () => {
+    const result = parseAllowedUsers("111,222, 333 ");
+    expect(result).toBeInstanceOf(Set);
+    expect(result?.has("111")).toBe(true);
+    expect(result?.has("222")).toBe(true);
+    expect(result?.has("333")).toBe(true);
+    expect(result?.size).toBe(3);
+  });
+
+  it("handles a single ID", () => {
+    const result = parseAllowedUsers("42");
+    expect(result?.has("42")).toBe(true);
+    expect(result?.size).toBe(1);
+  });
+});
+
+describe("allowlist", () => {
+  it("rejects users not in the allowlist", async () => {
+    const args = baseArgs({
+      allowedUsers: new Set(["999"]),
+    });
+
+    await generateAndPostReply(args);
+
+    expect(args.thread.post).toHaveBeenCalledWith(
+      "Sorry, you are not allowed to use this bot."
+    );
+    expect(args.thread.subscribe).not.toHaveBeenCalled();
+  });
+
+  it("allows users in the allowlist", async () => {
+    const args = baseArgs({
+      allowedUsers: new Set(["123"]),
+    });
+
+    await generateAndPostReply(args);
+
+    expect(args.thread.post).toHaveBeenCalledWith("Short reply");
+  });
+
+  it("allows all users when allowlist is null", async () => {
+    const args = baseArgs({ allowedUsers: null });
+
+    await generateAndPostReply(args);
+
+    expect(args.thread.post).toHaveBeenCalledWith("Short reply");
+  });
+});
+
+describe("message handling", () => {
+  it("subscribes and replies to a first DM", async () => {
+    const args = baseArgs();
+
+    await generateAndPostReply(args);
+
+    expect(args.thread.subscribe).toHaveBeenCalledTimes(1);
+    expect(args.thread.post).toHaveBeenCalledWith("Short reply");
+    expect(args.sessionStore.recordExchange).toHaveBeenCalledWith(
+      "telegram:dm:1",
+      { replyText: "Short reply", userMessage: "Hello bot" }
+    );
+  });
+
+  it("handles subscribed follow-up messages using session history", async () => {
     const responder = vi.fn(async () => ({
-      model: 'test-model',
-      text: 'Follow-up reply',
-    }))
+      model: "test-model",
+      text: "Follow-up reply",
+    }));
 
-    await generateAndPostReply({
-      message: {
-        author: {
-          fullName: 'Test User',
-          userName: 'tester',
-        },
-        isMention: true,
-        text: 'Another question',
-      },
-      responder: {
-        generateReply: responder,
-      },
-      sessionStore: {
-        get: async () => ({
-          history: [
-            {
-              role: 'user',
-              text: 'Earlier',
-              timestamp: '2026-03-18T00:00:00.000Z',
-            },
-          ],
-          lastReplyAt: '2026-03-18T00:00:00.000Z',
-          lastReplyText: 'Earlier reply',
-          lastUserMessage: 'Earlier',
-          subscribed: true,
-          threadId: 'telegram:thread:1',
-          updatedAt: '2026-03-18T00:00:00.000Z',
-        }),
-        getDebugSnapshot: async () => ({
-          session: null,
-          subscribed: true,
-          threadId: 'telegram:thread:1',
-        }),
-        recordExchange: async () => ({
-          history: [],
-          lastReplyAt: '2026-03-18T00:00:00.000Z',
-          lastReplyText: 'Follow-up reply',
-          lastUserMessage: 'Another question',
-          subscribed: true,
-          threadId: 'telegram:thread:1',
-          updatedAt: '2026-03-18T00:00:00.000Z',
-        }),
-        reset: async () => undefined,
-        setSubscribed: async () => undefined,
-      },
-      thread: {
-        id: 'telegram:thread:1',
-        isDM: false,
-        post,
-        subscribe: async () => undefined,
-        unsubscribe: async () => undefined,
-      },
-      userName: 'test_bot',
-    })
-
-    expect(responder).toHaveBeenCalledWith(expect.objectContaining({
+    const existingSession = {
       history: [
         {
-          role: 'user',
-          text: 'Earlier',
-          timestamp: '2026-03-18T00:00:00.000Z',
+          role: "user" as const,
+          text: "Earlier",
+          timestamp: "2026-03-18T00:00:00.000Z",
         },
       ],
-      isMention: true,
-      messageText: 'Another question',
-      threadId: 'telegram:thread:1',
-    }))
-    expect(post).toHaveBeenCalledWith('Follow-up reply')
-  })
+      updatedAt: "2026-03-18T00:00:00.000Z",
+    };
 
-  it('resets the session for /reset', async () => {
-    const unsubscribe = vi.fn(async () => undefined)
-    const reset = vi.fn(async () => undefined)
-    const post = vi.fn(async () => undefined)
-
-    await generateAndPostReply({
+    const args = baseArgs({
       message: {
-        author: {
-          fullName: 'Test User',
-          userName: 'tester',
-        },
-        text: '/reset',
+        author: { fullName: "Test User", userId: "123", userName: "tester" },
+        isMention: true,
+        text: "Another question",
       },
-      responder: {
-        generateReply: async () => ({
-          model: 'test-model',
-          text: 'unused',
+      responder: { generateReply: responder },
+      sessionStore: {
+        get: async () => existingSession,
+        getDebugSnapshot: async () => ({
+          session: null,
+          subscribed: true,
+          threadId: "telegram:thread:1",
         }),
+        recordExchange: async () => ({
+          history: [],
+          updatedAt: "2026-03-18T00:00:00.000Z",
+        }),
+        reset: async () => undefined,
+      },
+      thread: {
+        id: "telegram:thread:1",
+        isDM: false,
+        post: vi.fn(async () => undefined),
+        subscribe: async () => undefined,
+        unsubscribe: async () => undefined,
+      },
+    });
+
+    await generateAndPostReply(args);
+
+    expect(responder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        history: existingSession.history,
+        isMention: true,
+        messageText: "Another question",
+        threadId: "telegram:thread:1",
+      })
+    );
+    expect(args.thread.post).toHaveBeenCalledWith("Follow-up reply");
+  });
+
+  it("resets the session for /reset", async () => {
+    const args = baseArgs({
+      message: {
+        author: { fullName: "Test User", userId: "123", userName: "tester" },
+        text: "/reset",
+      },
+      thread: {
+        id: "telegram:thread:1",
+        isDM: false,
+        post: vi.fn(async () => undefined),
+        subscribe: async () => undefined,
+        unsubscribe: vi.fn(async () => undefined),
       },
       sessionStore: {
         get: async () => null,
         getDebugSnapshot: async () => ({
           session: null,
           subscribed: false,
-          threadId: 'telegram:thread:1',
+          threadId: "telegram:thread:1",
         }),
         recordExchange: async () => ({
           history: [],
-          lastReplyAt: '2026-03-18T00:00:00.000Z',
-          lastReplyText: '',
-          lastUserMessage: '',
-          subscribed: false,
-          threadId: 'telegram:thread:1',
-          updatedAt: '2026-03-18T00:00:00.000Z',
+          updatedAt: "2026-03-18T00:00:00.000Z",
         }),
-        reset,
-        setSubscribed: async () => undefined,
+        reset: vi.fn(async () => undefined),
       },
-      thread: {
-        id: 'telegram:thread:1',
-        isDM: false,
-        post,
-        subscribe: async () => undefined,
-        unsubscribe,
-      },
-      userName: 'test_bot',
-    })
+    });
 
-    expect(unsubscribe).toHaveBeenCalledTimes(1)
-    expect(reset).toHaveBeenCalledWith('telegram:thread:1')
-    expect(post).toHaveBeenCalledWith('Session reset. Send a new message or mention me again to start over.')
-  })
-})
+    await generateAndPostReply(args);
 
-describe('session store and responder', () => {
-  it('stores and returns debug snapshots', async () => {
+    expect(args.thread.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(args.sessionStore.reset).toHaveBeenCalledWith("telegram:thread:1");
+    expect(args.thread.post).toHaveBeenCalledWith(
+      "Session reset. Send a new message or mention me again to start over."
+    );
+  });
+});
+
+describe("session store and responder", () => {
+  it("stores and returns debug snapshots", async () => {
     const store = new StateSessionStore({
       acquireLock: async () => null,
       appendToList: async () => undefined,
@@ -235,33 +251,29 @@ describe('session store and responder', () => {
       setIfNotExists: async () => true,
       subscribe: async () => undefined,
       unsubscribe: async () => undefined,
-    })
+    });
 
-    await expect(store.getDebugSnapshot('telegram:thread:1')).resolves.toEqual({
+    await expect(store.getDebugSnapshot("telegram:thread:1")).resolves.toEqual({
       session: null,
       subscribed: true,
-      threadId: 'telegram:thread:1',
-    })
-  })
+      threadId: "telegram:thread:1",
+    });
+  });
 
-  it('extracts text from Workers AI responses', async () => {
+  it("extracts text from Workers AI responses", async () => {
     const responder = new WorkersAiResponder({
-      run: async () => ({
-        response: 'Worker AI reply',
-      }),
-    })
+      run: async () => ({ response: "Worker AI reply" }),
+    });
 
     await expect(
       responder.generateReply({
-        authorName: 'Test User',
+        authorName: "Test User",
         history: [],
         isDirectMessage: true,
         isMention: false,
-        messageText: 'Hello',
-        threadId: 'telegram:thread:1',
-      }),
-    ).resolves.toMatchObject({
-      text: 'Worker AI reply',
-    })
-  })
-})
+        messageText: "Hello",
+        threadId: "telegram:thread:1",
+      })
+    ).resolves.toMatchObject({ text: "Worker AI reply" });
+  });
+});

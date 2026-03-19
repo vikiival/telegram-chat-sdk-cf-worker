@@ -1,12 +1,14 @@
 {
   "name": "telegram-chat-sdk-cf-worker",
   "type": "module",
+  "packageManager": "pnpm@10.30.2",
   "scripts": {
-    "check": "tsc --noEmit",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "ultracite check",
+    "fmt": "ultracite fix"
   },
   "dependencies": {
     "@chat-adapter/state-memory": "4.20.2",
@@ -16,8 +18,10 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.7",
     "@cloudflare/workers-types": "4.20260317.1",
     "typescript": "5.9.3",
+    "ultracite": "7.3.2",
     "vitest": "4.1.0",
     "wrangler": "^4.4.0"
   }

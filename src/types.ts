@@ -1,86 +1,92 @@
-import type { StateAdapter } from 'chat'
-
-export const WORKERS_AI_MODEL = '@cf/meta/llama-3.2-3b-instruct'
-export const MAX_SESSION_TURNS = 12
-export const SESSION_KEY_PREFIX = 'session:'
+import type { StateAdapter } from "chat";
 
 export interface AiBindingLike {
-  run(model: string, inputs: Record<string, unknown>): Promise<unknown>
+  run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
 }
 
 export interface AppBindings {
-  AI: AiBindingLike
-  TELEGRAM_BOT_TOKEN: string
-  TELEGRAM_BOT_USERNAME: string
-  TELEGRAM_WEBHOOK_SECRET_TOKEN: string
-  DEBUG_API_SECRET?: string
+  AI: AiBindingLike;
+  ALLOWED_TELEGRAM_USERS?: string;
+  DEBUG_API_SECRET?: string;
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_BOT_USERNAME: string;
+  TELEGRAM_WEBHOOK_SECRET_TOKEN: string;
 }
 
 export interface SessionTurn {
-  role: 'user' | 'assistant'
-  text: string
-  timestamp: string
+  role: "user" | "assistant";
+  text: string;
+  timestamp: string;
 }
 
 export interface ConversationSession {
-  history: SessionTurn[]
-  lastReplyAt: string
-  lastReplyText: string
-  lastUserMessage: string
-  subscribed: boolean
-  threadId: string
-  updatedAt: string
+  history: SessionTurn[];
+  updatedAt: string;
 }
 
 export interface GenerateReplyInput {
-  authorName: string
-  history: SessionTurn[]
-  isDirectMessage: boolean
-  isMention: boolean
-  messageText: string
-  threadId: string
+  authorName: string;
+  history: SessionTurn[];
+  isDirectMessage: boolean;
+  isMention: boolean;
+  messageText: string;
+  threadId: string;
 }
 
 export interface GenerateReplyResult {
-  model: string
-  text: string
+  model: string;
+  text: string;
 }
 
 export interface ChatResponder {
-  generateReply(input: GenerateReplyInput): Promise<GenerateReplyResult>
+  generateReply(input: GenerateReplyInput): Promise<GenerateReplyResult>;
+}
+
+export interface ThreadHandle {
+  id: string;
+  isDM: boolean;
+  post(message: string): Promise<unknown>;
+  subscribe(): Promise<void>;
+  unsubscribe(): Promise<void>;
+}
+
+export interface IncomingMessage {
+  author: { fullName: string; userId: string; userName: string };
+  isMention?: boolean;
+  text: string;
 }
 
 export interface SessionStore {
-  get(threadId: string): Promise<ConversationSession | null>
+  get(threadId: string): Promise<ConversationSession | null>;
   getDebugSnapshot(threadId: string): Promise<{
-    session: ConversationSession | null
-    subscribed: boolean
-    threadId: string
-  }>
+    session: ConversationSession | null;
+    subscribed: boolean;
+    threadId: string;
+  }>;
   recordExchange(
     threadId: string,
-    exchange: {
-      replyText: string
-      userMessage: string
-    },
-  ): Promise<ConversationSession>
-  reset(threadId: string): Promise<void>
-  setSubscribed(threadId: string, subscribed: boolean): Promise<void>
+    exchange: { replyText: string; userMessage: string },
+    existing?: ConversationSession | null
+  ): Promise<ConversationSession>;
+  reset(threadId: string): Promise<void>;
 }
 
 export interface BotRuntime {
   bot: {
-    getState(): StateAdapter
-    initialize(): Promise<void>
+    getState(): StateAdapter;
+    initialize(): Promise<void>;
     webhooks: {
-      telegram(request: Request, options?: { waitUntil?: (task: Promise<unknown>) => void }): Promise<Response>
-    }
-  }
-  sessionStore: SessionStore
+      telegram(
+        request: Request,
+        options?: { waitUntil?: (task: Promise<unknown>) => void }
+      ): Promise<Response>;
+    };
+  };
+  sessionStore: SessionStore;
 }
 
 export interface RuntimeServices extends BotRuntime {
-  env: AppBindings
-  responder: ChatResponder
-  state: StateAdapter
+  env: AppBindings;
+  responder: ChatResponder;
+  state: StateAdapter;
 }

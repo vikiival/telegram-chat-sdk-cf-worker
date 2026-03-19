@@ -19,6 +19,7 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_BOT_USERNAME=
 TELEGRAM_WEBHOOK_SECRET_TOKEN=
 DEBUG_API_SECRET=
+ALLOWED_TELEGRAM_USERS=          # optional, comma-separated Telegram user IDs
 ```
 
 The worker also requires the Cloudflare Workers AI binding:
@@ -46,15 +47,15 @@ pnpm run dev
 - Continues replying on subscribed follow-up messages
 - Supports `/start`, `/help`, and `/reset`
 
-## Local webhook setup
+## Webhook setup
 
-Expose your local worker with a tunnel and point Telegram to:
+Expose your local worker with a tunnel (e.g. `pnpm run dev` with Cloudflare Quick Tunnels), then register the webhook:
 
-```txt
-POST https://<your-public-url>/webhooks/telegram
+```bash
+./scripts/set-webhook.sh https://<your-public-url>
 ```
 
-Use Telegram's `setWebhook` API with the same secret token configured in `TELEGRAM_WEBHOOK_SECRET_TOKEN`.
+The script loads `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET_TOKEN` from `.env` and points Telegram to `<url>/webhooks/telegram`.
 
 ## Debug examples
 
