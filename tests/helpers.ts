@@ -1,21 +1,20 @@
-import type { RuntimeServices } from '../src/types.js'
+import type { RuntimeServices } from "../src/types.js";
 
-export function createAiBindingMock(response: unknown = { response: 'AI reply' }) {
+export function createAiBindingMock(
+  response: unknown = { response: "AI reply" }
+) {
   return {
     run: async () => response,
-  }
+  };
 }
 
-export function createRuntimeMock(overrides: Partial<RuntimeServices> = {}): RuntimeServices {
+export function createRuntimeMock(
+  overrides: Partial<RuntimeServices> = {}
+): RuntimeServices {
   const session = {
     history: [],
-    lastReplyAt: '2026-03-18T00:00:00.000Z',
-    lastReplyText: 'stored reply',
-    lastUserMessage: 'stored message',
-    subscribed: true,
-    threadId: 'telegram:chat:1',
-    updatedAt: '2026-03-18T00:00:00.000Z',
-  }
+    updatedAt: "2026-03-18T00:00:00.000Z",
+  };
 
   return {
     bot: {
@@ -38,23 +37,23 @@ export function createRuntimeMock(overrides: Partial<RuntimeServices> = {}): Run
       }),
       initialize: async () => undefined,
       webhooks: {
-        telegram: async (_request, options) => {
-          options?.waitUntil?.(Promise.resolve())
-          return new Response('ok')
+        telegram: (_request, options) => {
+          options?.waitUntil?.(Promise.resolve());
+          return Promise.resolve(new Response("ok"));
         },
       },
     },
     env: {
       AI: createAiBindingMock(),
-      DEBUG_API_SECRET: 'debug-secret',
-      TELEGRAM_BOT_TOKEN: 'token',
-      TELEGRAM_BOT_USERNAME: 'test_bot',
-      TELEGRAM_WEBHOOK_SECRET_TOKEN: 'secret',
+      DEBUG_API_SECRET: "debug-secret",
+      TELEGRAM_BOT_TOKEN: "token",
+      TELEGRAM_BOT_USERNAME: "test_bot",
+      TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
     },
     responder: {
       generateReply: async () => ({
-        model: 'test-model',
-        text: 'AI reply',
+        model: "test-model",
+        text: "AI reply",
       }),
     },
     sessionStore: {
@@ -64,26 +63,22 @@ export function createRuntimeMock(overrides: Partial<RuntimeServices> = {}): Run
         subscribed: true,
         threadId,
       }),
-      recordExchange: async (threadId: string, exchange) => ({
-        ...session,
+      recordExchange: async (_threadId: string, exchange) => ({
         history: [
           {
-            role: 'user',
+            role: "user" as const,
             text: exchange.userMessage,
-            timestamp: '2026-03-18T00:00:00.000Z',
+            timestamp: "2026-03-18T00:00:00.000Z",
           },
           {
-            role: 'assistant',
+            role: "assistant" as const,
             text: exchange.replyText,
-            timestamp: '2026-03-18T00:00:00.000Z',
+            timestamp: "2026-03-18T00:00:00.000Z",
           },
         ],
-        lastReplyText: exchange.replyText,
-        lastUserMessage: exchange.userMessage,
-        threadId,
+        updatedAt: "2026-03-18T00:00:00.000Z",
       }),
       reset: async () => undefined,
-      setSubscribed: async () => undefined,
     },
     state: {
       acquireLock: async () => null,
@@ -103,5 +98,5 @@ export function createRuntimeMock(overrides: Partial<RuntimeServices> = {}): Run
       unsubscribe: async () => undefined,
     },
     ...overrides,
-  }
+  };
 }
