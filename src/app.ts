@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
@@ -64,7 +64,7 @@ export function createApp(options: CreateAppOptions = {}) {
   const app = new Hono<AppContext>();
 
   const resolveRuntime = async (
-    c: { env: AppBindings },
+    c: Context<AppContext>,
     next: () => Promise<void>
   ) => {
     c.set("runtime", options.runtime ?? (await getRuntime(c.env)));
