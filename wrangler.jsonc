@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "telegram-chat-sdk-cf-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-19",
+  "ai": {
+    "binding": "AI"
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  // "vars": {
+  //   "TELEGRAM_BOT_TOKEN": "123456:telegram-token",
+  //   "TELEGRAM_BOT_USERNAME": "your_bot_username",
+  //   "TELEGRAM_WEBHOOK_SECRET_TOKEN": "your_webhook_secret",
+  //   "DEBUG_API_SECRET": "debug-secret"
+  // },
+  // "kv_namespaces": [
+  //   {
+  //     "binding": "MY_KV_NAMESPACE",
+  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MY_BUCKET",
+  //     "bucket_name": "my-bucket"
+  //   }
+  // ],
+  // "d1_databases": [
+  //   {
+  //     "binding": "MY_DB",
+  //     "database_name": "my-database",
+  //     "database_id": ""
+  //   }
+  // ],
+  // "observability": {
+  //   "enabled": true,
+  //   "head_sampling_rate": 1
+  // }
+}
