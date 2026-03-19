@@ -1,6 +1,7 @@
 {
   "name": "telegram-chat-sdk-cf-worker",
   "type": "module",
+  "packageManager": "pnpm@10.30.2",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
