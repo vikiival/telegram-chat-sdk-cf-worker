@@ -63,15 +63,17 @@ interface AppContext {
 export function createApp(options: CreateAppOptions = {}) {
   const app = new Hono<AppContext>();
 
-  // Resolve runtime once via middleware
-  app.use("*", async (c, next) => {
+  const resolveRuntime = async (
+    c: { env: AppBindings },
+    next: () => Promise<void>
+  ) => {
     c.set("runtime", options.runtime ?? (await getRuntime(c.env)));
     await next();
-  });
+  };
 
   app.get("/", (c) => c.text("Telegram Chat SDK Worker PoC is running."));
 
-  app.get("/health", (c) => {
+  app.get("/health", resolveRuntime, (c) => {
     const runtime = c.get("runtime");
     return c.json({
       ok: true,
@@ -79,13 +81,13 @@ export function createApp(options: CreateAppOptions = {}) {
     });
   });
 
-  app.post("/webhooks/telegram", (c) => {
+  app.post("/webhooks/telegram", resolveRuntime, (c) => {
     const runtime = c.get("runtime");
     const waitUntil = c.executionCtx?.waitUntil?.bind(c.executionCtx);
     return runtime.bot.webhooks.telegram(c.req.raw, { waitUntil });
   });
 
-  app.get("/debug/session/:threadId", async (c) => {
+  app.get("/debug/session/:threadId", resolveRuntime, async (c) => {
     const runtime = c.get("runtime");
     assertDebugAccess(
       c.req.header("authorization"),
@@ -95,7 +97,7 @@ export function createApp(options: CreateAppOptions = {}) {
     return c.json(await runtime.sessionStore.getDebugSnapshot(params.threadId));
   });
 
-  app.post("/debug/reset/:threadId", async (c) => {
+  app.post("/debug/reset/:threadId", resolveRuntime, async (c) => {
     const runtime = c.get("runtime");
     assertDebugAccess(
       c.req.header("authorization"),
