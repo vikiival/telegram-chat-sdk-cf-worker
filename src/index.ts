@@ -1,5 +1,5 @@
-import { createApp } from './app.js'
+import { createApp } from "./app.js";
 
-const app = createApp()
+const app = createApp();
 
-export default app
+export default app;
