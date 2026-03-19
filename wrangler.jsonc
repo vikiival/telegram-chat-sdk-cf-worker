@@ -6,9 +6,7 @@
   "ai": {
     "binding": "AI"
   },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"]
   // "vars": {
   //   "TELEGRAM_BOT_TOKEN": "123456:telegram-token",
   //   "TELEGRAM_BOT_USERNAME": "your_bot_username",
